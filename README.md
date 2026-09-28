@@ -22,11 +22,17 @@ Supporting metrics:
 * Recall
 
 ## Data Source
-Data proyek direncanakan berasal dari GDELT, yaitu sumber data berita yang bersifat dinamis.
+Data proyek berasal dari GDELT, yaitu sumber data berita yang bersifat dinamis.
 
-Data akan diambil secara berkala untuk menangkap perubahan perhatian terhadap isu dari waktu ke waktu.
+Data diambil secara berkala untuk menangkap perubahan perhatian terhadap isu dari waktu ke waktu.
+
+Topik yang digunakan dalam pengambilan sample data:
+* Artificial Intelligence
+* Climate Change
+* Energy
 
 ## Project Structure
+```text
 MLOps-GlobalLocalNews/
 ├── .devcontainer/
 │   └── devcontainer.json
@@ -34,15 +40,16 @@ MLOps-GlobalLocalNews/
 │   └── .gitkeep
 ├── data/
 │   ├── raw/
-│   │   └── .gitkeep
+│   │   └── *.csv
 │   └── processed/
-│       └── .gitkeep
+│       └── gdelt_articles_processed.csv
 ├── models/
 │   └── .gitkeep
 ├── notebooks/
 │   └── .gitkeep
 ├── src/
-│   └── .gitkeep
+│   ├── ingest_data.py
+│   └── preprocess.py
 ├── .gitignore
 ├── LICENSE
 ├── README.md
@@ -50,17 +57,17 @@ MLOps-GlobalLocalNews/
 
 
 ### Directory Description
-`.devcontainer/` untuk konfigurasi lingkungan pengembangan GitHub Codespaces
-`config/` untuk menyimpan file konfigurasi yang digunakan dalam proyek.
-`data/raw/` untuk menyimpan data mentah yang diperoleh dari sumber data.
-`data/processed/` untuk menyimpan data yang telah melalui proses pengolahan.
-`models/` untuk menyimpan model machine learning yang telah dilatih.
-`notebooks/` untuk menyimpan notebook untuk eksplorasi data dan eksperimen. 
-`src/` menyimpan source code utama proyek.
-`requirements.txt` berisikan dependency Python yang dibutuhkan proyek.
-`.gitignore` untuk menentukan file atau folder yang tidak perlu dilacak oleh Git. 
-`LICENSE` sebagai Lisensi penggunaan dan distribusi proyek.
-`README.md` Dokumentasi utama proyek. 
+* `.devcontainer/` untuk konfigurasi lingkungan pengembangan GitHub Codespaces
+* `config/` untuk menyimpan file konfigurasi yang digunakan dalam proyek.
+* `data/raw/` untuk menyimpan data mentah yang diperoleh dari sumber data.
+* `data/processed/` untuk menyimpan data yang telah melalui proses pengolahan.
+* `models/` untuk menyimpan model machine learning yang telah dilatih.
+* `notebooks/` untuk menyimpan notebook untuk eksplorasi data dan eksperimen. 
+* `src/` menyimpan source code utama proyek.
+* `requirements.txt` berisikan dependency Python yang dibutuhkan proyek.
+* `.gitignore` untuk menentukan file atau folder yang tidak perlu dilacak oleh Git. 
+* `LICENSE` sebagai Lisensi penggunaan dan distribusi proyek.
+* `README.md` Dokumentasi utama proyek. 
 
 ## Development Environment
 Proyek menggunakan GitHub Codespaces sebagai lingkungan pengembangan agar konfigurasi Python dan tools yang digunakan dapat dijalankan secara konsisten.
@@ -77,6 +84,9 @@ Environment menggunakan:
 
 Konfigurasi environment disimpan pada:
 .devcontainer/devcontainer.json
+
+Dependency proyek dapat dipasang menggunakan:
+pip install -r requirements.txt
 
 ## Running the Project with GitHub Codespaces
 1. Buka repository MLOps-GlobalLocalNews di GitHub.
@@ -95,3 +105,40 @@ Branch foundation yang digunakan:
 feat/initial-eda
 
 Perubahan pada branch tersebut akan divalidasi terlebih dahulu melalui Pull Request sebelum di-merge ke `main`.
+
+## Data Ingestion 
+Data ingestion diimplementasikan menggunakan script:
+src/ingest_data.py
+
+Script menggunakan GDELT DOC API untuk mengambil artikel berdasarkan query atau kata kunci tertentu. Query dapat diberikan melalui argument --query, sedangkan jumlah maksimum artikel dapat ditentukan melalui --maxrecords. Dengan contoh: 
+* `python src/ingest_data.py --query "climate change" --maxrecords 5`
+* `python src/ingest_data.py --query "energy" --maxrecords 5`
+* `python src/ingest_data.py --query "artificial intelligence" --maxrecords 5`
+
+Hasil ingestion disimpan dalam format CSV pada folder: 
+data/raw/
+
+Nama file menggunakan timestamp waktu ingestion sehingga pengambilan data berikutnya tidak langsung menimpa file sebelumnya. Dengan contoh: 
+* gdelt_articles_2026-09-28_08-14-14.csv
+* gdelt_articles_2026-09-28_08-17-29.csv
+* gdelt_articles_2026-09-28_08-18-39.csv
+
+Script dapat dijalankan kembali dengan query dan waktu pengambilan yang berbeda sehingga data hasil ingestion sebelumnya tetap tersimpan.
+
+## Preprocessing 
+Preprocessing diimplementasikan menggunakan script:
+src/preprocess.py
+
+Tahapan preprocessing yang dilakukan:
+1. Membaca seluruh file CSV pada data/raw/.
+2. Menggabungkan data dari beberapa file raw.
+3. Menghapus duplikasi berdasarkan URL artikel.
+4. Menghapus baris yang tidak memiliki URL atau judul.
+5. Memastikan kolom seendate memiliki format timestamp yang valid.
+6. Menyimpan hasil preprocessing ke data/processed/.
+
+Script preprocessing dapat dijalankan menggunakan:
+python src/preprocess.py
+
+Hasil preprocessing disimpan pada:
+data/processed/gdelt_articles_processed.csv
