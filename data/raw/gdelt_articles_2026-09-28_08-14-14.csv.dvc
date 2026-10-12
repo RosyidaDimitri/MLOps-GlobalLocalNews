@@ -1,0 +1,5 @@
+outs:
+- md5: 33a3e30bc18da91621ba329cfb347b08
+  size: 2340
+  hash: md5
+  path: gdelt_articles_2026-09-28_08-14-14.csv
