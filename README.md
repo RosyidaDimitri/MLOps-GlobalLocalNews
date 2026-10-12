@@ -54,7 +54,7 @@ MLOps-GlobalLocalNews/
 ├── LICENSE
 ├── README.md
 └── requirements.txt
-
+```
 
 ### Directory Description
 * `.devcontainer/` untuk konfigurasi lingkungan pengembangan GitHub Codespaces
