@@ -142,3 +142,78 @@ python src/preprocess.py
 
 Hasil preprocessing disimpan pada:
 data/processed/gdelt_articles_processed.csv
+
+## Data Versioning with DVC
+Dataset pada proyek ini menggunakan DVC (Data Version Control) untuk mengelola perubahan versi dataset dan menjaga reproducibility.
+
+DVC digunakan karena dataset GDELT bersifat dinamis dan dapat berubah ketika proses ingestion dijalankan kembali. Git digunakan untuk menyimpan source code, konfigurasi, dokumentasi, serta file pointer `.dvc`, sedangkan dataset dikelola oleh DVC.
+
+### Inisialisasi DVC
+DVC diinisialisasi pada repository dengan:
+```bash
+dvc init
+```
+
+Hasil inisialisasi menghasilkan konfigurasi DVC pada:
+```text
+.dvc/config
+.dvcignore
+```
+
+### Menambahkan Dataset ke DVC
+Dataset ditambahkan ke DVC menggunakan:
+```bash
+dvc add data/raw/gdelt_articles_2026-09-28_08-14-14.csv
+```
+
+Perintah tersebut menghasilkan file pointer:
+```text
+data/raw/gdelt_articles_2026-09-28_08-14-14.csv.dvc
+```
+
+File `.dvc` disimpan dan di-versioning menggunakan Git, sedangkan isi dataset dikelola oleh DVC.
+
+### Memperbarui Versi Dataset
+Ketika isi dataset berubah, dataset dapat ditambahkan kembali menggunakan:
+```bash
+dvc add data/raw/gdelt_articles_2026-09-28_08-14-14.csv
+```
+
+DVC akan menghitung metadata dan hash baru untuk dataset.
+Pada demonstrasi versioning, dataset berubah dari 5 artikel pada versi awal menjadi 10 artikel pada versi berikutnya. Hash DVC juga berubah sehingga perubahan dataset dapat dilacak.
+
+Perubahan dapat diperiksa menggunakan:
+```bash
+dvc status
+```
+
+atau:
+```bash
+dvc diff HEAD
+```
+
+Contoh hasil pemeriksaan:
+```text
+Modified:
+    data/raw/gdelt_articles_2026-09-28_08-14-14.csv
+
+files summary: 1 modified
+```
+
+### Reproducibility
+Versioning dataset memungkinkan perubahan dataset dikaitkan dengan commit Git yang sesuai. Dengan demikian, versi dataset dapat dilacak berdasarkan riwayat perubahan pada file `.dvc`.
+
+Versi awal dataset disimpan pada commit:
+```text
+65b993c Track initial dataset with DVC
+```
+
+Versi berikutnya disimpan pada commit:
+```text
+4df6cb8 Update dataset version with DVC
+```
+
+Hal ini membantu menjaga reproducibility karena perubahan data memiliki metadata dan riwayat versi yang dapat dilacak.
+
+### Catatan Ingestion
+Pada pengujian ulang ingestion untuk memperoleh data terbaru, GDELT beberapa kali mengembalikan HTTP 429 (rate limit) dan tidak menghasilkan artikel. Oleh karena itu, demonstrasi perubahan versi menggunakan hasil ingestion GDELT yang telah berhasil dikumpulkan sebelumnya sebagai data tambahan. Pendekatan ini digunakan untuk menunjukkan mekanisme versioning dan lineage DVC tanpa membuat data sintetis.
