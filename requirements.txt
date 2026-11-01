@@ -5,3 +5,4 @@ matplotlib
 seaborn
 requests
 jupyter
+mlflow==3.17.1
