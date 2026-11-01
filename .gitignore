@@ -220,3 +220,8 @@ __marimo__/
 # MLflow local tracking data
 mlflow.db
 mlruns/
+
+# MLflow backup files (local only)
+mlflow-backup.db
+mlflow-lk07-original.db
+lk06-mlflow-backup.tar.gz

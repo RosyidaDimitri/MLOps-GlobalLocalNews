@@ -275,3 +275,79 @@ Dependency proyek dicatat pada `requirements.txt`, termasuk `mlflow==3.17.1`. Fi
 ### Catatan LK-06
 
 Dataset training merupakan dataset hasil pengolahan timeline GDELT dan digunakan untuk proof of concept. Ukuran dataset relatif terbatas sehingga hasil evaluasi digunakan sebagai hasil eksperimen awal, bukan sebagai klaim performa produksi.
+
+## LK-07 — Model Registry dan Versioning
+
+Tahap LK-07 melanjutkan eksperimen Machine Learning pada LK-06 dengan menerapkan Model Registry menggunakan MLflow. Tahap ini bertujuan untuk mengelola versi model, mencatat metadata model, mengatur lifecycle stage, dan menguji model yang telah diregistrasikan.
+
+### Model Registry
+
+Model diregistrasikan pada MLflow Model Registry dengan nama:
+
+`GlobalLocalNewsClassifier`
+
+Model terbaik dari eksperimen LK-06 digunakan sebagai Version 1 (V1). Model tersebut berasal dari run `capable-koi-160` dengan hyperparameter Logistic Regression `C=10.0`.
+
+### Model Versioning
+
+Dua versi model yang digunakan dalam tahap ini adalah:
+
+| Informasi | V1 | V2 |
+|---|---|---|
+| Sumber eksperimen | LK-06 | LK-07 |
+| MLflow Registry Version | 1 | 3 |
+| Run name | capable-koi-160 | salty-fish-824 |
+| Model | Logistic Regression | Logistic Regression |
+| Hyperparameter C | 10.0 | 1.0 |
+| Accuracy | 0.6667 | 0.7500 |
+| Precision | 0.4000 | 0.5000 |
+| Recall | 0.6667 | 0.3333 |
+| F1-score | 0.5000 | 0.4000 |
+| Stage akhir | Production | Staging |
+
+V1 mempertahankan model terbaik dari LK-06 berdasarkan F1-score. V2 dilatih kembali pada LK-07 menggunakan nilai hyperparameter `C=1.0` sebagai variasi model untuk dibandingkan dengan V1.
+
+Nomor Registry Version V2 adalah 3 karena terdapat satu versi duplikat yang sempat dibuat dan kemudian dihapus selama proses registrasi. Nomor versi MLflow yang telah digunakan tidak digunakan kembali.
+
+### Model Lifecycle
+
+Lifecycle model dikelola melalui MLflow Model Registry dengan tahapan berikut:
+
+1. Model V1 diregistrasikan dan awalnya berada pada stage None.
+2. Model V1 dipindahkan ke stage Staging.
+3. Model V1 kemudian dipromosikan ke stage Production.
+4. Model V2 diregistrasikan dan ditempatkan pada stage Staging.
+
+Status akhir Model Registry:
+
+- V1 (Registry Version 1): Production.
+- V2 (Registry Version 3): Staging.
+
+Dengan pengaturan tersebut, V1 menjadi model Production, sedangkan V2 tersedia sebagai model Staging untuk evaluasi lebih lanjut.
+
+### Metadata Model dengan DVC
+
+Metadata Model Registry disimpan dalam file:
+
+`config/model_registry.yaml`
+
+File tersebut mencatat informasi registry, versi model, sumber eksperimen, run ID, model ID, parameter, metric evaluasi, stage, dan hasil pengujian inference.
+
+DVC digunakan untuk melacak perubahan metadata tersebut menggunakan perintah:
+
+```bash
+dvc add config/model_registry.yaml
+```
+
+Perintah menghasilkan file pointer:
+
+config/model_registry.yaml.dvc
+
+File pointer dan konfigurasi .gitignore di dalam folder config/ digunakan bersama Git untuk melacak metadata DVC, sedangkan file YAML dikelola oleh DVC.
+
+Status tracking dapat diperiksa menggunakan dvc status
+
+### Inference Testing
+Pengujian inference dilakukan dengan memuat model dari MLflow Model Registry menggunakan MLflow PyFunc. Kedua model berhasil dimuat sebagai PyFuncModel dan diuji menggunakan sampel data dari dataset training. Pada sampel pengujian yang digunakan, V1 dan V2 menghasilkan prediksi kelas 1.
+
+Hasil ini menunjukkan bahwa kedua versi model dapat dimuat dan digunakan untuk inference melalui MLflow Model Registry.
