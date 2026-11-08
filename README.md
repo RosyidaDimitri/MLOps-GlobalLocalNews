@@ -351,3 +351,63 @@ Status tracking dapat diperiksa menggunakan dvc status
 Pengujian inference dilakukan dengan memuat model dari MLflow Model Registry menggunakan MLflow PyFunc. Kedua model berhasil dimuat sebagai PyFuncModel dan diuji menggunakan sampel data dari dataset training. Pada sampel pengujian yang digunakan, V1 dan V2 menghasilkan prediksi kelas 1.
 
 Hasil ini menunjukkan bahwa kedua versi model dapat dimuat dan digunakan untuk inference melalui MLflow Model Registry.
+
+## LK-08 - MLOps Automation dengan GitHub Actions
+Tahap LK-08 mengembangkan otomatisasi workflow MLOps menggunakan GitHub Actions. Tujuannya adalah menjalankan proses pengujian, training model, evaluasi, dan registrasi model secara otomatis tanpa harus menjalankan seluruh tahapan secara manual.
+
+### GitHub Actions Workflow
+Workflow disimpan pada:
+`.github/workflows/mlops-automation.yaml`
+
+Workflow menggunakan GitHub Actions dengan environment Python 3.11.
+
+Pipeline dijalankan ketika terdapat:
+* Push ke branch `main` atau `experiment/lk-08`.
+* Pull Request menuju branch `main`.
+* Trigger manual melalui `workflow_dispatch`.
+
+### Tahapan Automation
+Pipeline terdiri dari beberapa tahapan:
+1. **Checkout Repository**
+   Mengambil source code repository agar dapat digunakan oleh GitHub Actions runner.
+
+2. **Setup Python**
+   Menyiapkan environment Python versi 3.11.
+
+3. **Install Dependencies**
+   Memasang seluruh dependency yang tercatat pada `requirements.txt`.
+
+4. **Automated Testing**
+   Menjalankan pengujian menggunakan pytest melalui:
+   `python -m pytest tests/ -v`
+   Pengujian mencakup pemuatan dataset, pembuatan pipeline, proses training, dan validasi hasil prediksi model.
+
+5. **Automated Model Training**
+   Menjalankan training Logistic Regression menggunakan konfigurasi:
+   * C = 10.0
+   * Test size = 0.25
+   Parameter dan metric eksperimen dicatat menggunakan MLflow.
+
+6. **Model Evaluation and Validation**
+   Mengevaluasi hasil training menggunakan F1-score sebagai primary metric. Threshold minimum ditentukan melalui:
+   `config/evaluation_thresholds.yaml`
+   Model hanya dapat melanjutkan proses registrasi apabila memenuhi threshold minimum F1-score sebesar 0.50.
+
+7. **Model Registration**
+   Model yang memenuhi kriteria evaluasi didaftarkan ke MLflow Model Registry dengan nama `GlobalLocalNewsClassifier` dan ditempatkan pada stage Staging.
+
+### Automated Testing
+Pengujian dilakukan menggunakan pytest untuk memastikan komponen utama model dapat dijalankan.
+
+Hasil pengujian lokal:
+* Dataset loading: PASSED
+* Pipeline creation: PASSED
+* Model training: PASSED
+* Prediction validation: PASSED
+Total: 4 tests passed.
+
+### Automation Workflow
+Dengan implementasi GitHub Actions, proses pengujian dan training dapat dijalankan secara otomatis ketika perubahan dikirim ke branch yang telah ditentukan. Workflow ini membantu menjaga konsistensi proses pengembangan, memvalidasi perubahan kode, serta mengurangi kebutuhan menjalankan training dan evaluasi secara manual.
+
+### Notes 
+Pada implementasi ini, MLflow menggunakan SQLite sebagai backend tracking lokal. Penyimpanan pada GitHub Actions runner bersifat sementara sehingga hasil eksperimen dan model registry dari runner tidak otomatis menjadi penyimpanan permanen yang dapat diakses dari GitHub Codespaces.
