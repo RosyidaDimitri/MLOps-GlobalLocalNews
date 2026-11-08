@@ -1,0 +1,48 @@
+
+name: MLOps Automation Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - experiment/lk-08
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  mlops-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Automated Testing
+        run: |
+          python -m pytest tests/ -v
+
+      - name: Automated Model Training
+        env:
+          MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+        run: |
+          python src/train.py --C 10.0 --test-size 0.25
+
+      - name: Model Evaluation and Validation
+        env:
+          MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+        run: |
+          python src/evaluate_and_register.py
