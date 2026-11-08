@@ -1,0 +1,8 @@
+evaluation:
+  primary_metric: f1
+  minimum_f1: 0.50
+
+  baseline:
+    model: GlobalLocalNewsClassifier
+    version: 1
+    f1: 0.50
