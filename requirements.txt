@@ -6,4 +6,5 @@ seaborn
 requests
 jupyter
 mlflow==3.17.2
-pytestPyYAML
+pytest
+PyYAML
