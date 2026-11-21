@@ -1,0 +1,71 @@
+
+services:
+  # MLflow Tracking Server
+  mlflow-server:
+    build: .
+    image: global-local-news:lk09
+    environment:
+      MLFLOW_SERVER_ALLOWED_HOSTS: "mlflow-server:5000,localhost:*,127.0.0.1:*"
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --serve-artifacts
+      --artifacts-destination /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    networks:
+      - mlops-network
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=5)"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Registrasi model ke MLflow
+  model-init:
+    build: .
+    image: global-local-news:lk09
+    command: ["python", "-m", "src.register_model"]
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow-server:5000
+    depends_on:
+      mlflow-server:
+        condition: service_healthy
+    networks:
+      - mlops-network
+    restart: "no"
+
+  # FastAPI Prediction Service
+  api:
+    build: .
+    image: global-local-news:lk09
+    ports:
+      - "8000:8000"
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow-server:5000
+      MODEL_URI: models:/GlobalLocalNewsModel@champion
+    depends_on:
+      mlflow-server:
+        condition: service_healthy
+      model-init:
+        condition: service_completed_successfully
+    networks:
+      - mlops-network
+
+# Custom bridge network
+networks:
+  mlops-network:
+    driver: bridge
+
+# Persistent storage
+volumes:
+  mlflow-data:

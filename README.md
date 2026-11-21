@@ -365,3 +365,209 @@ Status tracking dapat diperiksa menggunakan dvc status
 Pengujian inference dilakukan dengan memuat model dari MLflow Model Registry menggunakan MLflow PyFunc. Kedua model berhasil dimuat sebagai PyFuncModel dan diuji menggunakan sampel data dari dataset training. Pada sampel pengujian yang digunakan, V1 dan V2 menghasilkan prediksi kelas 1.
 
 Hasil ini menunjukkan bahwa kedua versi model dapat dimuat dan digunakan untuk inference melalui MLflow Model Registry.
+
+## LK-09 - Containerization dan Deployment Menggunakan Docker Compose
+
+Tahap LK-09 mengimplementasikan containerization dan deployment pada proyek MLOps-GlobalLocalNews menggunakan Docker dan Docker Compose. Tahap ini bertujuan menjalankan layanan Machine Learning secara terintegrasi, menghubungkan layanan melalui jaringan internal Docker, serta mempertahankan data MLflow menggunakan persistent volume.
+
+### Arsitektur Deployment
+
+Deployment menggunakan tiga service yang dikelola melalui Docker Compose:
+
+| Service | Fungsi | Port |
+|---|---|---|
+| `mlflow-server` | Menjalankan MLflow Tracking Server dan Model Registry | 5000 |
+| `model-init` | Melakukan training dan registrasi model ke MLflow Model Registry | - |
+| `api` | Menyediakan layanan prediksi menggunakan FastAPI | 8000 |
+
+Dua service utama yang berjalan secara berkelanjutan adalah `mlflow-server` dan `api`. Service `model-init` merupakan service inisialisasi yang dijalankan setelah MLflow siap dan akan berhenti setelah proses registrasi model selesai.
+
+### Dockerfile
+
+Dockerfile menggunakan base image `python:3.11-slim` untuk menyediakan lingkungan Python yang konsisten di dalam container.
+
+Dependency proyek dipasang melalui `requirements.txt`, sedangkan FastAPI dan Uvicorn dipasang sebagai dependency tambahan. Source code pada folder `src/` dan dataset pada `data/processed/` disalin ke dalam image.
+
+Image Docker yang digunakan:
+
+`global-local-news:lk09`
+
+### Docker Compose
+
+Konfigurasi deployment disimpan dalam file `docker-compose.yaml`.
+
+Docker Compose digunakan untuk mengelola tiga service, konfigurasi port, environment variable, dependency antarlayanan, healthcheck, network, dan volume.
+
+Service `api` menggunakan alamat internal:
+
+`http://mlflow-server:5000`
+
+untuk berkomunikasi dengan MLflow Tracking Server.
+
+Service `model-init` dijalankan setelah `mlflow-server` memenuhi kondisi `service_healthy`. Selanjutnya, service `api` menunggu `model-init` menyelesaikan prosesnya dengan status sukses melalui kondisi `service_completed_successfully`.
+
+### Custom Bridge Network
+
+Docker Compose menggunakan custom bridge network dengan nama:
+
+`mlops-network`
+
+Network ini memungkinkan container berkomunikasi menggunakan nama service masing-masing tanpa harus menggunakan alamat IP container secara langsung.
+
+Komunikasi antara API dan MLflow dilakukan melalui jaringan internal Docker Compose.
+
+### Persistent Volume
+
+Persistent storage dikonfigurasi menggunakan named volume:
+
+`mlflow-data`
+
+Volume dipasang pada direktori `/mlflow` di dalam container MLflow Server.
+
+Penyimpanan tersebut mencakup:
+
+- `mlflow.db` untuk menyimpan experiment, run, parameter, metrics, dan informasi Model Registry.
+- `artifacts/` untuk menyimpan artefak model dan file terkait MLflow.
+
+Persistent volume memungkinkan data tetap tersedia meskipun container dihentikan dan dibuat kembali.
+
+### Menjalankan Deployment
+
+Pastikan Docker Desktop sudah berjalan dan terminal berada pada direktori repository.
+
+Membangun Docker image:
+
+```bash
+docker compose build
+```
+
+Menjalankan seluruh service:
+
+```bash
+docker compose up -d
+```
+
+Memeriksa status seluruh container:
+
+```bash
+docker compose ps -a
+```
+
+Melihat log service:
+
+```bash
+docker compose logs mlflow-server
+docker compose logs model-init
+docker compose logs api
+```
+
+Menghentikan container tanpa menghapus persistent volume:
+
+```bash
+docker compose down
+```
+
+Untuk menjalankan kembali deployment:
+
+```bash
+docker compose up -d
+```
+
+**Catatan:** Perintah `docker compose down` tidak menggunakan opsi `-v` agar persistent volume tetap dipertahankan.
+
+### MLflow Tracking dan Model Registry
+
+MLflow Tracking Server dapat diakses melalui:
+
+`http://localhost:5000`
+
+Experiment yang digunakan pada tahap registrasi model:
+
+`LK-09-GlobalLocalNews`
+
+Model yang diregistrasikan:
+
+`GlobalLocalNewsModel`
+
+Model diakses oleh API menggunakan MLflow Model Registry alias:
+
+`models:/GlobalLocalNewsModel@champion`
+
+Script `src/register_model.py` menggunakan kembali fungsi `load_data()` dan `build_pipeline()` dari `src/train.py`, sehingga proses training dan preprocessing tetap konsisten dengan implementasi LK-06.
+
+Script tersebut melakukan training Logistic Regression, menghitung metrik evaluasi, mencatat parameter dan metrics ke MLflow, mendaftarkan model, serta menetapkan alias `champion`.
+
+### FastAPI Prediction Service
+
+FastAPI menyediakan tiga endpoint utama:
+
+| Method | Endpoint | Fungsi |
+|---|---|---|
+| GET | `/` | Memeriksa layanan API |
+| GET | `/health` | Memeriksa kesehatan API dan koneksi MLflow |
+| POST | `/predict` | Menghasilkan prediksi model |
+
+API dapat diakses melalui:
+
+`http://localhost:8000`
+
+Dokumentasi interaktif Swagger tersedia pada:
+
+`http://localhost:8000/docs`
+
+Endpoint prediksi menerima input berupa empat fitur:
+
+- `global_growth`
+- `indonesia_growth`
+- `global_indonesia_ratio`
+- `topic`
+
+Contoh request:
+
+```json
+{
+  "global_growth": 0.5,
+  "indonesia_growth": 0.3,
+  "global_indonesia_ratio": 1.2,
+  "topic": "Climate Change"
+}
+```
+
+Contoh hasil pengujian:
+
+```json
+{
+  "prediction": 0,
+  "label": "Tidak terjadi peningkatan perhatian media",
+  "model": "models:/GlobalLocalNewsModel@champion"
+}
+```
+
+Nilai prediksi merupakan hasil dari pengujian menggunakan input contoh dan bukan merupakan hasil yang ditetapkan sebelumnya.
+
+### Hasil Pengujian LK-09
+
+Pengujian deployment dilakukan menggunakan Docker Desktop pada Windows melalui PowerShell.
+
+Hasil pengujian yang telah diperoleh:
+
+1. Docker image `global-local-news:lk09` berhasil dibangun.
+2. Custom bridge network berhasil dibuat.
+3. Named persistent volume `mlops-globallocalnews_mlflow-data` berhasil dibuat.
+4. MLflow Tracking Server berhasil berjalan dengan status healthy.
+5. Service `model-init` berhasil menyelesaikan proses training dan registrasi model dengan exit code 0.
+6. FastAPI berhasil berjalan pada port 8000.
+7. Endpoint GET `/` berhasil mengembalikan status running.
+8. Endpoint GET `/health` berhasil menunjukkan status healthy dan koneksi MLflow connected.
+9. Endpoint POST `/predict` berhasil menghasilkan prediksi menggunakan model dari MLflow Model Registry.
+10. Pengujian komunikasi antar-container berhasil memperoleh HTTP Status 200 melalui alamat `http://mlflow-server:5000/health`.
+11. Pengujian persistent volume menunjukkan database `mlflow.db` dan direktori `artifacts/` tetap tersedia setelah container dihentikan dan dibuat kembali.
+12. Setelah restart, API kembali berhasil memuat model dan menghasilkan prediksi.
+
+### Kesimpulan LK-09
+
+Implementasi LK-09 berhasil mengintegrasikan MLflow Tracking Server, proses registrasi model, dan FastAPI dalam lingkungan Docker Compose.
+
+Penggunaan custom bridge network memungkinkan komunikasi antar-container, sedangkan persistent volume menjaga penyimpanan database dan artefak MLflow agar tetap tersedia setelah container dihentikan dan dijalankan kembali.
+
+Dengan demikian, proyek MLOps-GlobalLocalNews telah memiliki layanan prediksi berbasis model Machine Learning yang dapat dijalankan melalui container dan terintegrasi dengan MLflow Model Registry.
