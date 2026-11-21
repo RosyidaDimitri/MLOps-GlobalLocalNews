@@ -66,8 +66,8 @@ MLOps-GlobalLocalNews/
 * `src/` menyimpan source code utama proyek.
 * `requirements.txt` berisikan dependency Python yang dibutuhkan proyek.
 * `.gitignore` untuk menentukan file atau folder yang tidak perlu dilacak oleh Git.
-* `LICENSE` sebagai Lisensi penggunaan dan distribusi proyek.
-* `README.md` Dokumentasi utama proyek.
+* `LICENSE` sebagai lisensi penggunaan dan distribusi proyek.
+* `README.md` sebagai dokumentasi utama proyek.
 
 ## Development Environment
 Proyek menggunakan GitHub Codespaces sebagai lingkungan pengembangan agar konfigurasi Python dan tools yang digunakan dapat dijalankan secara konsisten.
@@ -106,17 +106,31 @@ feat/initial-eda
 
 Perubahan pada branch tersebut akan divalidasi terlebih dahulu melalui Pull Request sebelum di-merge ke `main`.
 
-## Data Ingestion
-Data ingestion diimplementasikan menggunakan script:
-src/ingest_data.py
 
-Script menggunakan GDELT DOC API untuk mengambil artikel berdasarkan query atau kata kunci tertentu. Query dapat diberikan melalui argument --query, sedangkan jumlah maksimum artikel dapat ditentukan melalui --maxrecords. Dengan contoh:
-* `python src/ingest_data.py --query "climate change" --maxrecords 5`
-* `python src/ingest_data.py --query "energy" --maxrecords 5`
-* `python src/ingest_data.py --query "artificial intelligence" --maxrecords 5`
+## Data Ingestion
+
+Data ingestion diimplementasikan menggunakan script:
+
+`src/ingest_data.py`
+
+Script menggunakan GDELT DOC API untuk mengambil artikel berdasarkan query atau kata kunci tertentu. Query dapat diberikan melalui argument `--query`, sedangkan jumlah maksimum artikel dapat ditentukan melalui `--maxrecords`.
+
+Contoh penggunaan:
+
+```bash
+python src/ingest_data.py --query "Artificial Intelligence" --maxrecords 5
+```
+
+```bash
+python src/ingest_data.py --query "Climate Change" --maxrecords 5
+```
+
+```bash
+python src/ingest_data.py --query "Energy" --maxrecords 5
+```
 
 Hasil ingestion disimpan dalam format CSV pada folder:
-data/raw/
+`data/raw/`
 
 Nama file menggunakan timestamp waktu ingestion sehingga pengambilan data berikutnya tidak langsung menimpa file sebelumnya. Dengan contoh:
 * gdelt_articles_2026-09-28_08-14-14.csv
