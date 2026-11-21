@@ -62,12 +62,12 @@ MLOps-GlobalLocalNews/
 * `data/raw/` untuk menyimpan data mentah yang diperoleh dari sumber data.
 * `data/processed/` untuk menyimpan data yang telah melalui proses pengolahan.
 * `models/` untuk menyimpan model machine learning yang telah dilatih.
-* `notebooks/` untuk menyimpan notebook untuk eksplorasi data dan eksperimen. 
+* `notebooks/` untuk menyimpan notebook untuk eksplorasi data dan eksperimen.
 * `src/` menyimpan source code utama proyek.
 * `requirements.txt` berisikan dependency Python yang dibutuhkan proyek.
-* `.gitignore` untuk menentukan file atau folder yang tidak perlu dilacak oleh Git. 
-* `LICENSE` sebagai Lisensi penggunaan dan distribusi proyek.
-* `README.md` Dokumentasi utama proyek. 
+* `.gitignore` untuk menentukan file atau folder yang tidak perlu dilacak oleh Git.
+* `LICENSE` sebagai lisensi penggunaan dan distribusi proyek.
+* `README.md` sebagai dokumentasi utama proyek.
 
 ## Development Environment
 Proyek menggunakan GitHub Codespaces sebagai lingkungan pengembangan agar konfigurasi Python dan tools yang digunakan dapat dijalankan secara konsisten.
@@ -106,26 +106,40 @@ feat/initial-eda
 
 Perubahan pada branch tersebut akan divalidasi terlebih dahulu melalui Pull Request sebelum di-merge ke `main`.
 
-## Data Ingestion 
+
+## Data Ingestion
+
 Data ingestion diimplementasikan menggunakan script:
-src/ingest_data.py
 
-Script menggunakan GDELT DOC API untuk mengambil artikel berdasarkan query atau kata kunci tertentu. Query dapat diberikan melalui argument --query, sedangkan jumlah maksimum artikel dapat ditentukan melalui --maxrecords. Dengan contoh: 
-* `python src/ingest_data.py --query "climate change" --maxrecords 5`
-* `python src/ingest_data.py --query "energy" --maxrecords 5`
-* `python src/ingest_data.py --query "artificial intelligence" --maxrecords 5`
+`src/ingest_data.py`
 
-Hasil ingestion disimpan dalam format CSV pada folder: 
-data/raw/
+Script menggunakan GDELT DOC API untuk mengambil artikel berdasarkan query atau kata kunci tertentu. Query dapat diberikan melalui argument `--query`, sedangkan jumlah maksimum artikel dapat ditentukan melalui `--maxrecords`.
 
-Nama file menggunakan timestamp waktu ingestion sehingga pengambilan data berikutnya tidak langsung menimpa file sebelumnya. Dengan contoh: 
+Contoh penggunaan:
+
+```bash
+python src/ingest_data.py --query "Artificial Intelligence" --maxrecords 5
+```
+
+```bash
+python src/ingest_data.py --query "Climate Change" --maxrecords 5
+```
+
+```bash
+python src/ingest_data.py --query "Energy" --maxrecords 5
+```
+
+Hasil ingestion disimpan dalam format CSV pada folder:
+`data/raw/`
+
+Nama file menggunakan timestamp waktu ingestion sehingga pengambilan data berikutnya tidak langsung menimpa file sebelumnya. Dengan contoh:
 * gdelt_articles_2026-09-28_08-14-14.csv
 * gdelt_articles_2026-09-28_08-17-29.csv
 * gdelt_articles_2026-09-28_08-18-39.csv
 
 Script dapat dijalankan kembali dengan query dan waktu pengambilan yang berbeda sehingga data hasil ingestion sebelumnya tetap tersimpan.
 
-## Preprocessing 
+## Preprocessing
 Preprocessing diimplementasikan menggunakan script:
 src/preprocess.py
 
@@ -217,3 +231,137 @@ Hal ini membantu menjaga reproducibility karena perubahan data memiliki metadata
 
 ### Catatan Ingestion
 Pada pengujian ulang ingestion untuk memperoleh data terbaru, GDELT beberapa kali mengembalikan HTTP 429 (rate limit) dan tidak menghasilkan artikel. Oleh karena itu, demonstrasi perubahan versi menggunakan hasil ingestion GDELT yang telah berhasil dikumpulkan sebelumnya sebagai data tambahan. Pendekatan ini digunakan untuk menunjukkan mekanisme versioning dan lineage DVC tanpa membuat data sintetis.
+
+## Machine Learning dan MLflow
+
+Tahap LK-06 mengembangkan model Machine Learning sesuai dengan rancangan pada LK-01, yaitu binary classification untuk memprediksi apakah perhatian media Indonesia terhadap suatu isu global akan meningkat.
+
+Dataset training menggunakan data timeline volume berita dari GDELT untuk tiga topik: Artificial Intelligence, Climate Change, dan Energy.
+
+Dataset hasil feature engineering disimpan pada `data/processed/lk06_training_dataset.csv`.
+
+### Fitur dan Target
+
+Fitur yang digunakan adalah `global_growth`, `indonesia_growth`, `global_indonesia_ratio`, dan `topic`. Target klasifikasi adalah `label`. Nilai `1` menunjukkan bahwa volume berita Indonesia pada 24 jam berikutnya meningkat minimal 10% dibandingkan periode 24 jam sebelumnya, sedangkan nilai `0` menunjukkan kondisi lainnya.
+
+### Training Model
+
+Model yang digunakan adalah Logistic Regression dengan preprocessing untuk fitur numerik dan kategorikal. Eksperimen dilakukan dengan beberapa variasi nilai hyperparameter `C`:
+
+```bash
+python src/train.py --C 0.1
+python src/train.py --C 1
+python src/train.py --C 10
+```
+
+### Integrasi MLflow
+
+MLflow digunakan sebagai sistem manajemen eksperimen untuk mencatat parameter, metric evaluasi, dan model dari setiap eksperimen.
+
+MLflow server dapat dijalankan menggunakan:
+
+```bash
+mlflow server --host 0.0.0.0 --port 5000
+```
+
+Nama experiment: `LK-06-Global-vs-Local-News`.
+
+Metric yang dicatat adalah Accuracy, Precision, Recall, dan F1-score. F1-score digunakan sebagai metric utama sesuai rancangan LK-01.
+
+### Hasil Eksperimen
+
+| C | Accuracy | Precision | Recall | F1-score |
+|---|---:|---:|---:|---:|
+| 0.1 | 0.6667 | 0.3333 | 0.3333 | 0.3333 |
+| 1.0 | 0.7500 | 0.5000 | 0.3333 | 0.4000 |
+| 10.0 | 0.6667 | 0.4000 | 0.6667 | 0.5000 |
+
+Eksperimen dengan `C=10.0` memberikan hasil terbaik berdasarkan F1-score, yaitu `0.5000`.
+
+### Model Registry
+
+Model terbaik diregistrasikan pada MLflow Model Registry dengan nama `GlobalLocalNewsClassifier` dan tersedia sebagai **Version 1**. Model tersebut berasal dari eksperimen dengan hyperparameter `C=10.0`.
+
+### Reproduktibilitas
+
+Dependency proyek dicatat pada `requirements.txt`, termasuk `mlflow==3.17.1`. File `mlflow.db` dan folder `mlruns/` digunakan sebagai penyimpanan tracking MLflow lokal dan tidak dimasukkan ke Git repository.
+
+### Catatan LK-06
+
+Dataset training merupakan dataset hasil pengolahan timeline GDELT dan digunakan untuk proof of concept. Ukuran dataset relatif terbatas sehingga hasil evaluasi digunakan sebagai hasil eksperimen awal, bukan sebagai klaim performa produksi.
+
+## LK-07 — Model Registry dan Versioning
+
+Tahap LK-07 melanjutkan eksperimen Machine Learning pada LK-06 dengan menerapkan Model Registry menggunakan MLflow. Tahap ini bertujuan untuk mengelola versi model, mencatat metadata model, mengatur lifecycle stage, dan menguji model yang telah diregistrasikan.
+
+### Model Registry
+
+Model diregistrasikan pada MLflow Model Registry dengan nama:
+
+`GlobalLocalNewsClassifier`
+
+Model terbaik dari eksperimen LK-06 digunakan sebagai Version 1 (V1). Model tersebut berasal dari run `capable-koi-160` dengan hyperparameter Logistic Regression `C=10.0`.
+
+### Model Versioning
+
+Dua versi model yang digunakan dalam tahap ini adalah:
+
+| Informasi | V1 | V2 |
+|---|---|---|
+| Sumber eksperimen | LK-06 | LK-07 |
+| MLflow Registry Version | 1 | 3 |
+| Run name | capable-koi-160 | salty-fish-824 |
+| Model | Logistic Regression | Logistic Regression |
+| Hyperparameter C | 10.0 | 1.0 |
+| Accuracy | 0.6667 | 0.7500 |
+| Precision | 0.4000 | 0.5000 |
+| Recall | 0.6667 | 0.3333 |
+| F1-score | 0.5000 | 0.4000 |
+| Stage akhir | Production | Staging |
+
+V1 mempertahankan model terbaik dari LK-06 berdasarkan F1-score. V2 dilatih kembali pada LK-07 menggunakan nilai hyperparameter `C=1.0` sebagai variasi model untuk dibandingkan dengan V1.
+
+Nomor Registry Version V2 adalah 3 karena terdapat satu versi duplikat yang sempat dibuat dan kemudian dihapus selama proses registrasi. Nomor versi MLflow yang telah digunakan tidak digunakan kembali.
+
+### Model Lifecycle
+
+Lifecycle model dikelola melalui MLflow Model Registry dengan tahapan berikut:
+
+1. Model V1 diregistrasikan dan awalnya berada pada stage None.
+2. Model V1 dipindahkan ke stage Staging.
+3. Model V1 kemudian dipromosikan ke stage Production.
+4. Model V2 diregistrasikan dan ditempatkan pada stage Staging.
+
+Status akhir Model Registry:
+
+- V1 (Registry Version 1): Production.
+- V2 (Registry Version 3): Staging.
+
+Dengan pengaturan tersebut, V1 menjadi model Production, sedangkan V2 tersedia sebagai model Staging untuk evaluasi lebih lanjut.
+
+### Metadata Model dengan DVC
+
+Metadata Model Registry disimpan dalam file:
+
+`config/model_registry.yaml`
+
+File tersebut mencatat informasi registry, versi model, sumber eksperimen, run ID, model ID, parameter, metric evaluasi, stage, dan hasil pengujian inference.
+
+DVC digunakan untuk melacak perubahan metadata tersebut menggunakan perintah:
+
+```bash
+dvc add config/model_registry.yaml
+```
+
+Perintah menghasilkan file pointer:
+
+config/model_registry.yaml.dvc
+
+File pointer dan konfigurasi .gitignore di dalam folder config/ digunakan bersama Git untuk melacak metadata DVC, sedangkan file YAML dikelola oleh DVC.
+
+Status tracking dapat diperiksa menggunakan dvc status
+
+### Inference Testing
+Pengujian inference dilakukan dengan memuat model dari MLflow Model Registry menggunakan MLflow PyFunc. Kedua model berhasil dimuat sebagai PyFuncModel dan diuji menggunakan sampel data dari dataset training. Pada sampel pengujian yang digunakan, V1 dan V2 menghasilkan prediksi kelas 1.
+
+Hasil ini menunjukkan bahwa kedua versi model dapat dimuat dan digunakan untuk inference melalui MLflow Model Registry.
