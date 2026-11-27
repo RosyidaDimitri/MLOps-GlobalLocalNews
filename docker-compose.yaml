@@ -44,7 +44,7 @@ services:
       - mlops-network
     restart: "no"
 
-  # FastAPI Prediction Service
+  # FastAPI Prediction Service LK-09
   api:
     build: .
     image: global-local-news:lk09
@@ -60,6 +60,15 @@ services:
         condition: service_completed_successfully
     networks:
       - mlops-network
+
+  # MLflow Model Serving LK-10 - Three Replicas
+  mlflow-serving:
+    image: global-local-news-serving:lk10
+    deploy:
+      replicas: 3
+    networks:
+      - mlops-network
+    restart: unless-stopped
 
 # Custom bridge network
 networks:

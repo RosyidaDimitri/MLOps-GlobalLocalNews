@@ -571,3 +571,123 @@ Implementasi LK-09 berhasil mengintegrasikan MLflow Tracking Server, proses regi
 Penggunaan custom bridge network memungkinkan komunikasi antar-container, sedangkan persistent volume menjaga penyimpanan database dan artefak MLflow agar tetap tersedia setelah container dihentikan dan dijalankan kembali.
 
 Dengan demikian, proyek MLOps-GlobalLocalNews telah memiliki layanan prediksi berbasis model Machine Learning yang dapat dijalankan melalui container dan terintegrasi dengan MLflow Model Registry.
+
+## LK-10 - Model Serving dan Simulasi Scaling Menggunakan MLflow Models & Docker
+
+### Tujuan
+
+LK-10 bertujuan mengimplementasikan model serving menggunakan MLflow Models dan Docker serta melakukan simulasi scaling dengan menjalankan tiga replica model serving secara bersamaan.
+
+Model yang digunakan adalah `GlobalLocalNewsModel` versi 3 dari MLflow Model Registry.
+
+### Generate Dockerfile MLflow
+
+Dockerfile dibuat menggunakan perintah MLflow:
+
+```powershell
+$env:MLFLOW_TRACKING_URI = "http://localhost:5000"
+
+.\.venv-lk10\Scripts\mlflow.exe models generate-dockerfile --model-uri "models:/GlobalLocalNewsModel/3" --output-directory "mlflow-dockerfile-lk10" --env-manager local
+```
+
+Hasil generate terdiri dari tujuh file:
+
+- Dockerfile
+- conda.yaml
+- MLmodel
+- model.skops
+- python_env.yaml
+- registered_model_meta
+- requirements.txt
+
+Pada Dockerfile ditambahkan konfigurasi `PIP_DEFAULT_TIMEOUT=300` dan `PIP_RETRIES=10` untuk meningkatkan ketahanan proses instalasi dependency.
+
+### Build Docker Image
+
+Docker image dibuat menggunakan perintah:
+
+```powershell
+docker build -t global-local-news-serving:lk10 .\mlflow-dockerfile-lk10
+```
+
+Proses build berhasil menghasilkan image dengan nama `global-local-news-serving:lk10`.
+
+### Konfigurasi Scaling
+
+Service `mlflow-serving` ditambahkan ke `docker-compose.yaml` dengan konfigurasi tiga replica dan menggunakan image hasil build MLflow.
+
+```yaml
+mlflow-serving:
+  image: global-local-news-serving:lk10
+  deploy:
+    replicas: 3
+  networks:
+    - mlops-network
+  restart: unless-stopped
+```
+
+Validasi konfigurasi dilakukan menggunakan:
+
+```powershell
+docker compose config -q
+```
+
+Kemudian tiga replica dijalankan menggunakan:
+
+```powershell
+docker compose up -d --scale mlflow-serving=3 mlflow-serving
+```
+
+Docker berhasil menjalankan tiga container model serving secara bersamaan.
+
+### Pengujian Model Serving
+
+Pengujian dilakukan pada setiap replica menggunakan dua endpoint:
+
+1. Endpoint `/ping` untuk memeriksa kesiapan layanan model.
+2. Endpoint `/invocations` untuk menguji proses inference.
+
+Pengujian inference menggunakan satu sampel dari dataset `data/processed/lk06_training_dataset.csv` dengan format input `dataframe_split`.
+
+Fitur input yang digunakan:
+
+| Fitur | Nilai |
+|---|---:|
+| global_growth | 0.28095607904046926 |
+| indonesia_growth | 0.08695652173913038 |
+| global_indonesia_ratio | 32.98888888888889 |
+| topic | climate_change |
+| Label aktual | 0 |
+
+### Hasil Pengujian
+
+Hasil pengujian ketiga replica menunjukkan:
+
+| Replica | Endpoint /ping | Endpoint /invocations | Prediksi |
+|---|---|---|---|
+| 1 | HTTP 200 | HTTP 200 | 0 |
+| 2 | HTTP 200 | HTTP 200 | 0 |
+| 3 | HTTP 200 | HTTP 200 | 0 |
+
+Seluruh replica berhasil merespons permintaan health check dengan HTTP 200.
+
+Pengujian inference juga berhasil pada ketiga replica dengan respons:
+
+```json
+{
+  "predictions": [0]
+}
+```
+
+Hasil tersebut menunjukkan bahwa ketiga container dapat memuat model dan melakukan prediksi secara individual dengan output yang konsisten.
+
+Pengujian ini merupakan simulasi scaling dengan tiga replica. Pengujian belum mencakup pengukuran distribusi beban atau load balancing melalui satu endpoint bersama.
+
+### Kesimpulan LK-10
+
+Implementasi LK-10 berhasil melakukan model serving menggunakan MLflow Models dan Docker. Docker image berhasil dibangun dan digunakan untuk menjalankan tiga replica model serving melalui Docker Compose.
+
+Berdasarkan hasil pengujian, seluruh replica berhasil melewati health check dan menjalankan inference dengan HTTP 200 serta menghasilkan prediksi yang konsisten.
+
+Dengan demikian, implementasi model serving dan simulasi scaling menggunakan tiga replica telah berhasil dilakukan.
+

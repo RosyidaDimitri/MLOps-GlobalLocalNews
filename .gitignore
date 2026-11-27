@@ -225,3 +225,6 @@ mlruns/
 mlflow-backup.db
 mlflow-lk07-original.db
 lk06-mlflow-backup.tar.gz
+
+# LK-10 virtual environment
+.venv-lk10/
